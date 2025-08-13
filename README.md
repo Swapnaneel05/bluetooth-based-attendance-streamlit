@@ -1,1 +1,0 @@
-# bluetooth-based-attendance-streamlit
