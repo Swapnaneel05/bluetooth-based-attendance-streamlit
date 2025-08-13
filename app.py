@@ -52,6 +52,9 @@ if 'attendance_message' not in st.session_state:
 if 'show_attendance_list' not in st.session_state:
     st.session_state.show_attendance_list = False
 
+if 'show_all_students_list' not in st.session_state:
+    st.session_state.show_all_students_list = False
+
 # Custom CSS for mobile optimization and color scheme
 st.markdown("""
 <style>
@@ -141,15 +144,17 @@ def teacher_dashboard():
         st.session_state.selected_class = selected_class_display
         st.session_state.attendance_message = f'Selected Class: {st.session_state.selected_class}. Click "Take Attendance" to scan.'
         st.session_state.show_attendance_list = False # Hide list when class changes
+        st.session_state.show_all_students_list = False # Hide all students list when class changes
 
     st.write(st.session_state.attendance_message)
 
-    col_buttons = st.columns(2)
+    col_buttons = st.columns(3) # Increased columns for new button
     with col_buttons[0]:
         if st.button("Take Attendance", key="take_attendance_btn"):
             if st.session_state.selected_class:
                 st.session_state.attendance_message = f"Scanning for students in {st.session_state.selected_class}..."
                 st.session_state.show_attendance_list = False # Hide list during scan
+                st.session_state.show_all_students_list = False # Hide all students list during scan
                 st.rerun()
                 # Simulate delay for scanning
                 time.sleep(random.randint(10, 30))
@@ -176,40 +181,71 @@ def teacher_dashboard():
                 st.session_state.attendance_message = "Please select a class first."
 
     with col_buttons[1]:
-        if st.button("View Attendance List", key="view_attendance_list_btn"):
+        if st.button("View Present Students", key="view_attendance_list_btn"):
             st.session_state.show_attendance_list = not st.session_state.show_attendance_list # Toggle visibility
+            st.session_state.show_all_students_list = False # Hide other list
+            st.rerun()
+
+    with col_buttons[2]:
+        if st.button("View All Students", key="view_all_students_btn"):
+            st.session_state.show_all_students_list = not st.session_state.show_all_students_list # Toggle visibility
+            st.session_state.show_attendance_list = False # Hide other list
             st.rerun()
 
     if st.session_state.show_attendance_list:
-        display_attendance_list(st.session_state.selected_class)
+        display_present_students_list(st.session_state.selected_class)
+
+    if st.session_state.show_all_students_list:
+        display_all_students_list(st.session_state.selected_class)
 
     if st.button("Logout", key="teacher_logout_btn"):
         st.session_state.current_page = "login"
         st.session_state.selected_class = None
         st.session_state.attendance_message = ""
         st.session_state.show_attendance_list = False
+        st.session_state.show_all_students_list = False
         st.rerun()
 
-# --- Function to display attendance list ---
-def display_attendance_list(selected_class):
-    st.subheader(f"Attendance List for {selected_class}")
+# --- Function to display present students list ---
+def display_present_students_list(selected_class):
+    st.subheader(f"Present Students in {selected_class}")
+    if not st.session_state.students_data:
+        st.info("No student data available.")
+        return
+
+    # Filter students by selected class and attendance status
+    present_students_in_class = []
+    for roll, student_info in st.session_state.students_data.items():
+        if student_info["department"] == selected_class and student_info["attendance"] == "Present":
+            present_students_in_class.append({
+                "Roll Number": roll,
+                "Name": student_info["name"]
+            })
+
+    if present_students_in_class:
+        st.table(present_students_in_class)
+    else:
+        st.info(f"No students marked 'Present' in {selected_class} yet.")
+
+# --- Function to display all students list ---
+def display_all_students_list(selected_class):
+    st.subheader(f"All Students in {selected_class}")
     if not st.session_state.students_data:
         st.info("No student data available.")
         return
 
     # Filter students by selected class
-    class_students = []
+    all_students_in_class = []
     for roll, student_info in st.session_state.students_data.items():
         if student_info["department"] == selected_class:
-            class_students.append({
+            all_students_in_class.append({
                 "Roll Number": roll,
                 "Name": student_info["name"],
-                "Department": student_info["department"],
                 "Attendance Status": student_info["attendance"]
             })
 
-    if class_students:
-        st.table(class_students)
+    if all_students_in_class:
+        st.table(all_students_in_class)
     else:
         st.info(f"No students found in {selected_class}.")
 
@@ -290,6 +326,8 @@ elif st.session_state.current_page == 'student_login':
     student_login_page()
 elif st.session_state.current_page == 'student_dashboard':
     student_dashboard()
+
+
 
 
 
