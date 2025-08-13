@@ -49,6 +49,9 @@ if 'selected_class' not in st.session_state:
 if 'attendance_message' not in st.session_state:
     st.session_state.attendance_message = ""
 
+if 'show_attendance_list' not in st.session_state:
+    st.session_state.show_attendance_list = False
+
 # Custom CSS for mobile optimization and color scheme
 st.markdown("""
 <style>
@@ -137,42 +140,78 @@ def teacher_dashboard():
     if selected_class_display != st.session_state.selected_class:
         st.session_state.selected_class = selected_class_display
         st.session_state.attendance_message = f'Selected Class: {st.session_state.selected_class}. Click "Take Attendance" to scan.'
+        st.session_state.show_attendance_list = False # Hide list when class changes
 
     st.write(st.session_state.attendance_message)
 
-    if st.button("Take Attendance", key="take_attendance_btn"):
-        if st.session_state.selected_class:
-            st.session_state.attendance_message = f"Scanning for students in {st.session_state.selected_class}..."
-            st.rerun()
-            # Simulate delay for scanning
-            time.sleep(random.randint(10, 30))
+    col_buttons = st.columns(2)
+    with col_buttons[0]:
+        if st.button("Take Attendance", key="take_attendance_btn"):
+            if st.session_state.selected_class:
+                st.session_state.attendance_message = f"Scanning for students in {st.session_state.selected_class}..."
+                st.session_state.show_attendance_list = False # Hide list during scan
+                st.rerun()
+                # Simulate delay for scanning
+                time.sleep(random.randint(10, 30))
 
-            present_students = []
-            # Simulate device detection based on student data
-            for roll, student in st.session_state.students_data.items():
-                if student["department"] == st.session_state.selected_class:
-                    # Only mark present if student is 'active' (simulated Bluetooth on)
-                    if st.session_state.students_data[roll]["attendance"] == "Present (awaiting teacher scan)":
-                        present_students.append(roll)
-                        st.session_state.students_data[roll]["attendance"] = "Present"
-                    else:
-                        st.session_state.students_data[roll]["attendance"] = "Absent"
+                present_students = []
+                # Simulate device detection based on student data
+                for roll, student in st.session_state.students_data.items():
+                    if student["department"] == st.session_state.selected_class:
+                        # Only mark present if student is 'active' (simulated Bluetooth on)
+                        if st.session_state.students_data[roll]["attendance"] == "Present (awaiting teacher scan)":
+                            present_students.append(roll)
+                            st.session_state.students_data[roll]["attendance"] = "Present"
+                        else:
+                            st.session_state.students_data[roll]["attendance"] = "Absent"
 
-            save_data(STUDENTS_FILE, st.session_state.students_data)
+                save_data(STUDENTS_FILE, st.session_state.students_data)
 
-            if present_students:
-                st.session_state.attendance_message = f"Attendance marked for: {len(present_students)} students. (Present: {', '.join([st.session_state.students_data[r]['name'] for r in present_students])})"
+                if present_students:
+                    st.session_state.attendance_message = f"Attendance marked for: {len(present_students)} students. (Present: {', '.join([st.session_state.students_data[r]['name'] for r in present_students])})"
+                else:
+                    st.session_state.attendance_message = "No students found for the selected class."
+                st.rerun()
             else:
-                st.session_state.attendance_message = "No students found for the selected class."
+                st.session_state.attendance_message = "Please select a class first."
+
+    with col_buttons[1]:
+        if st.button("View Attendance List", key="view_attendance_list_btn"):
+            st.session_state.show_attendance_list = not st.session_state.show_attendance_list # Toggle visibility
             st.rerun()
-        else:
-            st.session_state.attendance_message = "Please select a class first."
+
+    if st.session_state.show_attendance_list:
+        display_attendance_list(st.session_state.selected_class)
 
     if st.button("Logout", key="teacher_logout_btn"):
         st.session_state.current_page = "login"
         st.session_state.selected_class = None
         st.session_state.attendance_message = ""
+        st.session_state.show_attendance_list = False
         st.rerun()
+
+# --- Function to display attendance list ---
+def display_attendance_list(selected_class):
+    st.subheader(f"Attendance List for {selected_class}")
+    if not st.session_state.students_data:
+        st.info("No student data available.")
+        return
+
+    # Filter students by selected class
+    class_students = []
+    for roll, student_info in st.session_state.students_data.items():
+        if student_info["department"] == selected_class:
+            class_students.append({
+                "Roll Number": roll,
+                "Name": student_info["name"],
+                "Department": student_info["department"],
+                "Attendance Status": student_info["attendance"]
+            })
+
+    if class_students:
+        st.table(class_students)
+    else:
+        st.info(f"No students found in {selected_class}.")
 
 # --- Student Login Page ---
 def student_login_page():
@@ -251,6 +290,8 @@ elif st.session_state.current_page == 'student_login':
     student_login_page()
 elif st.session_state.current_page == 'student_dashboard':
     student_dashboard()
+
+
 
 
 
